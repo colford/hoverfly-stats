@@ -11,10 +11,12 @@ import csv
 import sqlite3 as sql
 import numpy
 import simplekml
+import matplotlib.pyplot as plt
 from Bio import SeqIO
 from openpyxl import load_workbook, Workbook
 from collections import Counter
 from itertools import combinations
+from mpl_toolkits.basemap import Basemap
 
 def bold_meta_index():
     """ (None -> {})
@@ -164,6 +166,17 @@ def query_all(db):
     cur.execute('select * from sequences;')
     all = cur.fetchall()
     return all
+
+def query_all_lat_lngs(db):
+    """ (sqlite3.Connection) -> [][]
+    
+    Returns a list of lat and a list of lngs
+    """
+    cur = db.cursor()
+    cur.execute('select latitude,longitude from sequences;')
+    all = cur.fetchall()
+    ret = [i for i in all if i[0] != 0 and i[1] != 0]
+    return zip(*ret)
 
 def query_unique_species(db):
     """ (sqlite3.Connection) -> []
@@ -789,3 +802,24 @@ def open_db():
     Returns the open database
     """
     return create_db("andrews-sequence-database.db",False)
+
+def draw_map_of_samples(db):
+    """ (None) -> sqlite3.Connection
+    
+    Using the lat/lngs of each sample draw a map with them pinpointed
+    """
+    lats,lons = query_all_lat_lngs(db)
+    m = Basemap(projection='merc',llcrnrlat=-60,urcrnrlat=80,\
+            llcrnrlon=-180,urcrnrlon=180,lat_ts=40,resolution='c')
+    
+    #m.drawcoastlines()
+    #m.shadedrelief()
+    m.drawcoastlines()
+    m.drawcountries()
+    m.fillcontinents(color = 'white')
+    m.drawmapboundary()
+    
+    x,y = m(lons, lats)
+    m.plot(x, y, 'bo', markersize=3)
+    
+    plt.savefig("andrew_samples.pdf", dpi=600, format='pdf')
